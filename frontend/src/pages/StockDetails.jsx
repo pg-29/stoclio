@@ -1,0 +1,12 @@
+import { useEffect, useState } from "react";
+import TradingViewChart from "../components/TradingViewChart.jsx";
+import { marketApi } from "../services/market";
+import { COLORS, fontBody, fontDisplay } from "../utils/market";
+export default function StockDetails({ symbol }) {
+  const [data, setData] = useState(null); const [error, setError] = useState(false);
+  useEffect(() => { let active = true; setData(null); setError(false); marketApi.stock(symbol).then((response) => active && setData(response.data.data)).catch(() => active && setError(true)); return () => { active = false; }; }, [symbol]);
+  if (error) return <div className="lv-page-wrap" style={{ color: COLORS.down, fontFamily: fontBody }}>Live quote unavailable for {symbol}.</div>;
+  if (!data) return <div className="lv-page-wrap" style={{ color: COLORS.inkMuted, fontFamily: fontBody }}>Loading live quote...</div>;
+  const fields = [["LTP", data.ltp], ["Open", data.open], ["High", data.high], ["Low", data.low], ["Previous close", data.previousClose], ["Change %", `${Number(data.changePercent).toFixed(2)}%`], ["Volume", Number(data.volume).toLocaleString("en-IN")]];
+  return <div style={{ background: COLORS.paper }}><div className="lv-page-wrap"><h1 style={{ fontFamily: fontDisplay, color: COLORS.ink, margin: "0 0 4px" }}>{data.name || data.symbol}</h1><p style={{ fontFamily: fontBody, color: COLORS.inkMuted, marginBottom: 18 }}>{data.symbol} · {data.exchange}</p><div className="lv-summary-grid" style={{ marginBottom: 18 }}>{fields.map(([label, value]) => <div key={label} style={{ background: COLORS.paperCard, border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14 }}><div style={{ fontFamily: fontBody, fontSize: 12, color: COLORS.inkMuted }}>{label}</div><strong style={{ fontFamily: fontBody, color: COLORS.ink }}>{value ?? "-"}</strong></div>)}</div><div style={{ background: COLORS.paperCard, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 14, marginBottom: 18 }}><h2 style={{ fontFamily: fontDisplay, color: COLORS.ink }}>Historical chart</h2><TradingViewChart symbol={data.symbol} height={360} /></div><div style={{ background: COLORS.paperCard, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 18, fontFamily: fontBody }}><h2 style={{ fontFamily: fontDisplay, color: COLORS.ink }}>Market depth</h2><pre style={{ overflowX: "auto", color: COLORS.inkMuted }}>{JSON.stringify(data.depth || {}, null, 2)}</pre></div></div></div>;
+}

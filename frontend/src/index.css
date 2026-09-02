@@ -128,3 +128,13 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+@media (max-width: 760px) {
+  #root { width: 100%; border-inline: 0; }
+  .lv-navbar { flex-wrap: wrap; padding: 12px 14px; }
+  .lv-navbar > div:nth-child(2) { order: 3; flex-basis: 100%; max-width: none; }
+  .lv-nav-links { margin-left: auto; gap: 6px; }
+  .lv-nav-pages { padding: 0 8px; }
+  .lv-nav-page-item { padding: 10px 9px; font-size: 12px; }
+  .lv-page-wrap { padding: 24px 14px 44px; }
+}

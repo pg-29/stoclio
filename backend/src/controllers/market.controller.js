@@ -98,7 +98,21 @@ async function search(req, res, next) {
 
 async function quote(req, res, next) {
   try {
-    const exchangeTokens = exchangeTokensFromQuery(req.query);
+    let exchangeTokens;
+    if (req.query.symbols && !req.query.exchangeTokens && !req.query.symboltoken) {
+      const symbols = String(req.query.symbols).split(',').map((symbol) => symbol.trim().toUpperCase()).filter(Boolean);
+      if (!symbols.length || symbols.length > 100) throw badRequest('symbols must contain between 1 and 100 symbols');
+      const instruments = await Promise.all(symbols.map((symbol) => findInstrument(symbol, [String(req.query.exchange || 'NSE').toUpperCase()])));
+      exchangeTokens = instruments.reduce((result, instrument) => {
+        const token = instrument.symboltoken || instrument.symbolToken;
+        if (!token) return result;
+        const exchange = String(instrument.exchange || req.query.exchange || 'NSE').toUpperCase();
+        result[exchange] = [...(result[exchange] || []), String(token)];
+        return result;
+      }, {});
+    } else {
+      exchangeTokens = exchangeTokensFromQuery(req.query);
+    }
     const mode = String(req.query.mode || 'FULL').toUpperCase();
     if (!['LTP', 'QUOTE', 'FULL'].includes(mode)) throw badRequest('mode must be LTP, QUOTE, or FULL');
     const key = `market:quote:${mode}:${JSON.stringify(exchangeTokens)}`;
@@ -155,4 +169,70 @@ async function depthBySymbol(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, gainers, losers, depth, depthBySymbol };
+function firstQuote(data) {
+  if (Array.isArray(data)) return data[0] || {};
+  if (Array.isArray(data?.fetched)) return data.fetched[0] || {};
+  return data?.fetched || data || {};
+}
+
+function normalizeQuote(item, instrument = {}) {
+  const quote = firstQuote(item);
+  const ltp = Number(quote.ltp ?? quote.last_traded_price ?? quote.price);
+  const previousClose = Number(quote.close ?? quote.prev_close ?? quote.previous_close);
+  const changePercent = Number(quote.percentChange ?? quote.changePercent ?? (previousClose ? ((ltp - previousClose) / previousClose) * 100 : 0));
+  return {
+    name: instrument.name || instrument.tradingsymbol || quote.tradingsymbol || quote.tradingSymbol || '',
+    symbol: instrument.tradingsymbol || instrument.symbol || quote.tradingsymbol || quote.tradingSymbol || '',
+    exchange: instrument.exchange || quote.exchange || '',
+    symboltoken: instrument.symboltoken || instrument.symbolToken || quote.symboltoken || quote.symbolToken || '',
+    ltp,
+    open: Number(quote.open ?? quote.open_price_day),
+    high: Number(quote.high ?? quote.high_price_day),
+    low: Number(quote.low ?? quote.low_price_day),
+    previousClose,
+    changePercent,
+    volume: Number(quote.tradeVolume ?? quote.tradedVolume ?? quote.volume ?? quote.trade_volume),
+    depth: quote.depth || quote.marketDepth || { buy: quote.buy, sell: quote.sell },
+  };
+}
+
+async function findInstrument(symbol, exchanges = ['NSE', 'BSE', 'NFO', 'BFO']) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  if (!normalized || normalized.length > 50) throw badRequest('A valid symbol is required');
+  const results = (await Promise.all(exchanges.map((exchange) => angelService.searchInstruments(exchange, normalized)))).flat();
+  const instrument = results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === normalized) || results[0];
+  if (!instrument) { const error = new Error(`Instrument not found: ${normalized}`); error.statusCode = 404; throw error; }
+  return { ...instrument, exchange: String(instrument.exchange || '').toUpperCase() };
+}
+
+async function stock(req, res, next) {
+  try {
+    const instrument = await findInstrument(req.params.symbol, ['NSE', 'BSE']);
+    const exchange = instrument.exchange;
+    const token = instrument.symboltoken || instrument.symbolToken;
+    if (!token) throw new Error('Instrument token was not returned by Angel One');
+    const data = await cache.getOrSet(`market:stock:${exchange}:${token}`, TTL.quote, () => angelService.getQuotes({ mode: 'FULL', exchangeTokens: { [exchange]: [String(token)] } }));
+    res.json({ data: normalizeQuote(data.value, instrument) });
+  } catch (error) { next(error); }
+}
+
+async function fnoOverview(req, res, next) {
+  try {
+    await cachedResponse(res, 'market:fno:overview', TTL.movers, () => angelService.getGainersLosers({ expirytype: 'NEAR', datatype: 'PercPriceGainer' }));
+  } catch (error) { next(error); }
+}
+
+async function fnoSearch(req, res, next) {
+  return search({ ...req, query: { ...req.query, exchange: 'NFO' } }, res, next);
+}
+
+async function fno(req, res, next) {
+  try {
+    const instrument = await findInstrument(req.params.symbol, ['NFO', 'BFO']);
+    const token = instrument.symboltoken || instrument.symbolToken;
+    const data = await cache.getOrSet(`market:fno:${instrument.exchange}:${token}`, TTL.quote, () => angelService.getQuotes({ mode: 'FULL', exchangeTokens: { [instrument.exchange]: [String(token)] } }));
+    res.json({ data: { instrument, quote: normalizeQuote(data.value, instrument), expiry: instrument.expiry || instrument.expirydate, strike: instrument.strikeprice || instrument.strike, openInterest: firstQuote(data.value).opentInterest ?? firstQuote(data.value).openInterest, volume: firstQuote(data.value).tradeVolume ?? firstQuote(data.value).volume } });
+  } catch (error) { next(error); }
+}
+
+module.exports = { search, quote, candles, gainers, losers, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno };

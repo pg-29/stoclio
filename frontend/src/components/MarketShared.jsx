@@ -44,7 +44,7 @@ export function LiveStatusDot({ status }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: fontBody, fontSize: 11, color: live ? COLORS.up : "rgba(255,255,255,0.45)" }}>
       <span style={{ width: 6, height: 6, borderRadius: "50%", background: live ? COLORS.up : "rgba(255,255,255,0.4)", display: "inline-block" }} />
-      {live ? "live feed" : "simulated"}
+      {live ? "live feed" : "live feed unavailable"}
     </span>
   );
 }

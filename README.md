@@ -43,7 +43,7 @@ ANGEL_API_KEY=
 ANGEL_CLIENT_CODE=
 ANGEL_PIN=
 ANGEL_TOTP_SECRET=
-ANGEL_STREAM_TOKENS={"RELIANCE":{"exchange":"nse_cm","token":"2885"}}
+ANGEL_STREAM_TOKENS={"RELIANCE":{"exchange":"nse_cm","token":"2885"},"TCS":{"exchange":"nse_cm","token":"11536"},"INFY":{"exchange":"nse_cm","token":"1594"},"HDFCBANK":{"exchange":"nse_cm","token":"1333"},"ICICIBANK":{"exchange":"nse_cm","token":"4963"},"SBIN":{"exchange":"nse_cm","token":"3045"},"ITC":{"exchange":"nse_cm","token":"1660"},"LT":{"exchange":"nse_cm","token":"11483"},"BHARTIARTL":{"exchange":"nse_cm","token":"10604"},"KOTAKBANK":{"exchange":"nse_cm","token":"1922"}}
 ```
 
 Frontend variables are safe public build-time values:
@@ -137,7 +137,7 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-The frontend is available at `http://localhost:5173` and the API health check is at `http://localhost:5000/api/health`. When Angel One and MongoDB credentials are absent, the market endpoint returns clearly defined demo quotes so the UI remains usable during development.
+The frontend is available at `http://localhost:5173` and the API health check is at `http://localhost:5000/api/health`. Market pages require configured Angel One SmartAPI credentials and display an empty state when live data is unavailable.
 
 ## Environment
 

@@ -36,7 +36,7 @@ export default function AuthForm({ mode, onAuthenticated, onBack }) {
   const inputStyle = { width: "100%", boxSizing: "border-box", fontFamily: fontBody, fontSize: 14, padding: "11px 12px", borderRadius: 8, border: `1px solid ${error ? COLORS.down : COLORS.line}`, outline: "none" };
   return <div style={{ background: COLORS.navy, display: "flex", alignItems: "center", justifyContent: "center", padding: "56px 20px" }}>
     <form onSubmit={submit} style={{ width: "100%", maxWidth: 380, background: COLORS.paperCard, borderRadius: 16, padding: 28 }}>
-      <div style={{ fontFamily: fontDisplay, fontWeight: 600, fontSize: 20, color: COLORS.ink, marginBottom: 6 }}>{isSignup ? "Open your Stocro account" : "Log in to your account"}</div>
+      <div style={{ fontFamily: fontDisplay, fontWeight: 600, fontSize: 20, color: COLORS.ink, marginBottom: 6 }}>{isSignup ? "Open your Stoclio account" : "Log in to your account"}</div>
       <div style={{ fontFamily: fontBody, fontSize: 13, color: COLORS.inkMuted, marginBottom: 22 }}>{isSignup ? "Create your account with email and password." : "Use your Stoclio account credentials."}</div>
       {isSignup && <label style={{ display: "block", marginBottom: 14, fontFamily: fontBody, fontSize: 12.5, color: COLORS.inkMuted }}>Name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Alex Rivera" autoComplete="name" style={{ ...inputStyle, marginTop: 6 }} /></label>}
       <label style={{ display: "block", marginBottom: 14, fontFamily: fontBody, fontSize: 12.5, color: COLORS.inkMuted }}>Email<input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="alex@example.com" type="email" autoComplete="email" style={{ ...inputStyle, marginTop: 6 }} /></label>
