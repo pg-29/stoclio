@@ -97,17 +97,6 @@ class AngelOneService {
     return this.getQuotes({ mode: 'FULL', exchangeTokens });
   }
 
-  async getGainersLosers(params = {}) {
-    await this.ensureSession();
-    try {
-      const response = await this.getClient().gainersLosers(params);
-      return this.assertResponse(response, 'gainers and losers fetch').data;
-    } catch (error) {
-      if (error instanceof AngelServiceError) throw error;
-      throw new AngelServiceError('Angel One gainers and losers fetch failed', error);
-    }
-  }
-
   async getHistoricalCandles(params) {
     const required = ['exchange', 'symboltoken', 'interval', 'fromdate', 'todate'];
     const missing = required.filter((field) => !params?.[field]);

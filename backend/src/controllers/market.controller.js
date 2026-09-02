@@ -2,6 +2,10 @@ const angelService = require('../services/angel.service');
 const cache = require('../services/cache.service');
 const { angel } = require('../config/env');
 
+function logMarket(event, details = {}) {
+  console.info(JSON.stringify({ scope: 'market', event, ...details }));
+}
+
 const TTL = {
   search: 5 * 60 * 1000,
   quote: 5 * 1000,
@@ -72,6 +76,33 @@ async function cachedResponse(res, key, ttl, loader) {
   return res.json({ data: result.value });
 }
 
+function arrayData(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.fetched)) return value.fetched;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
+function configuredTokenGroups(exchangeFilter) {
+  let configured = {};
+  try { configured = JSON.parse(angel.streamTokens || '{}'); } catch (error) { logMarket('token-config-invalid', { message: error.message }); return {}; }
+  return Object.entries(configured).reduce((groups, [symbol, item]) => {
+    const exchange = String(item.exchange || '').toUpperCase().replace('_CM', '').replace('_FO', '');
+    if (exchangeFilter && exchange !== exchangeFilter) return groups;
+    if (!item.token || !exchange) return groups;
+    groups[exchange] = [...(groups[exchange] || []), { symbol, token: String(item.token) }];
+    return groups;
+  }, {});
+}
+
+function normalizeMover(item, tracked = {}) {
+  const symbol = item.tradingSymbol || item.tradingsymbol || item.symbol || tracked.symbol || '';
+  const ltp = Number(item.ltp ?? item.last_traded_price ?? item.price);
+  const previousClose = Number(item.close ?? item.prev_close ?? item.previous_close);
+  const changePercent = Number(item.percentChange ?? item.changePercent ?? (previousClose ? ((ltp - previousClose) / previousClose) * 100 : NaN));
+  return { symbol, exchange: item.exchange || tracked.exchange || '', ltp, changePercent, volume: Number(item.tradeVolume ?? item.tradedVolume ?? item.volume ?? 0) };
+}
+
 async function search(req, res, next) {
   try {
     const query = String(req.query.q || req.query.query || req.query.searchscrip || '').trim();
@@ -81,19 +112,21 @@ async function search(req, res, next) {
     const exchanges = requestedExchange ? [requestedExchange] : ['NSE', 'BSE', 'NFO', 'MCX'];
     const key = `market:search:${exchanges.join(',')}:${query.toUpperCase()}`;
     await cachedResponse(res, key, TTL.search, async () => {
-      const responses = await Promise.all(exchanges.map((exchange) => angelService.searchInstruments(exchange, query)));
-      return responses.flat().map((item) => {
-        const exchange = String(item.exchange || requestedExchange).toUpperCase();
+      const responses = await Promise.allSettled(exchanges.map((exchange) => angelService.searchInstruments(exchange, query)));
+      const rejected = responses.filter((response) => response.status === 'rejected');
+      if (rejected.length) logMarket('search-provider-errors', { query, exchanges, count: rejected.length, messages: rejected.map((response) => response.reason?.message).filter(Boolean) });
+      return responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : []).map((item) => {
+        const exchange = String(item.exchange || item.exch_seg || requestedExchange).toUpperCase().replace('_CM', '').replace('_FO', '');
         return {
-          symbol: item.tradingsymbol || item.symbol || '',
-          name: item.name || item.tradingsymbol || '',
+          symbol: item.tradingsymbol || item.tradingSymbol || item.symbol || '',
+          name: item.name || item.companyname || item.tradingsymbol || item.tradingSymbol || '',
           exchange,
-          symboltoken: item.symboltoken,
+          symboltoken: item.symboltoken || item.symbolToken || item.token,
           kind: ['NFO', 'BFO'].includes(exchange) ? 'index' : ['MCX', 'NCDEX'].includes(exchange) ? 'commodity' : 'stock',
         };
       }).filter((item) => item.symbol).slice(0, 40);
     });
-  } catch (error) { next(error); }
+  } catch (error) { logMarket('search-error', { query: req.query.q || req.query.query, message: error.message }); res.json({ data: [] }); }
 }
 
 async function quote(req, res, next) {
@@ -102,7 +135,7 @@ async function quote(req, res, next) {
     if (req.query.symbols && !req.query.exchangeTokens && !req.query.symboltoken) {
       const symbols = String(req.query.symbols).split(',').map((symbol) => symbol.trim().toUpperCase()).filter(Boolean);
       if (!symbols.length || symbols.length > 100) throw badRequest('symbols must contain between 1 and 100 symbols');
-      const instruments = await Promise.all(symbols.map((symbol) => findInstrument(symbol, [String(req.query.exchange || 'NSE').toUpperCase()])));
+      const instruments = (await Promise.allSettled(symbols.map((symbol) => findInstrument(symbol, [String(req.query.exchange || 'NSE').toUpperCase()])))).flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
       exchangeTokens = instruments.reduce((result, instrument) => {
         const token = instrument.symboltoken || instrument.symbolToken;
         if (!token) return result;
@@ -110,14 +143,29 @@ async function quote(req, res, next) {
         result[exchange] = [...(result[exchange] || []), String(token)];
         return result;
       }, {});
+      if (!Object.keys(exchangeTokens).length) {
+        logMarket('quote-no-instruments', { symbols });
+        return res.json({ data: [] });
+      }
     } else {
       exchangeTokens = exchangeTokensFromQuery(req.query);
     }
     const mode = String(req.query.mode || 'FULL').toUpperCase();
     if (!['LTP', 'QUOTE', 'FULL'].includes(mode)) throw badRequest('mode must be LTP, QUOTE, or FULL');
     const key = `market:quote:${mode}:${JSON.stringify(exchangeTokens)}`;
-    await cachedResponse(res, key, TTL.quote, () => angelService.getQuotes({ mode, exchangeTokens }));
-  } catch (error) { next(error); }
+        const result = await cache.getOrSet(key, TTL.quote, async () => {
+          try {
+            const response = await angelService.getQuotes({ mode, exchangeTokens });
+            return arrayData(response);
+          } catch (error) {
+            logMarket('quote-provider-error', { mode, exchanges: Object.keys(exchangeTokens), message: error.message });
+            return [];
+          }
+        });
+        res.set('X-Cache', result.cached ? 'HIT' : 'MISS');
+          logMarket('quote-success', { mode, exchanges: Object.keys(exchangeTokens), returned: Array.isArray(result.value) ? result.value.length : 0 });
+          res.json({ data: Array.isArray(result.value) ? result.value : [] });
+        } catch (error) { logMarket('quote-error', { mode: req.query.mode, message: error.message }); res.json({ data: [] }); }
 }
 
 async function candles(req, res, next) {
@@ -150,24 +198,43 @@ async function candlesBySymbol(req, res, next) {
     };
     const result = await cache.getOrSet(`market:candles:symbol:${instrument.exchange}:${token}:${params.interval}:${params.fromdate}:${params.todate}`, TTL.candles, () => angelService.getHistoricalCandles(params));
     res.json({ data: { instrument, candles: result.value } });
-  } catch (error) { next(error); }
+  } catch (error) { logMarket('candles-symbol-error', { symbol: req.params.symbol, message: error.message }); res.json({ data: { instrument: null, candles: [] } }); }
 }
 
 async function movers(type, req, res, next) {
   try {
-    const params = {
-      expirytype: String(req.query.expirytype || 'NEAR').toUpperCase(),
-      datatype: type === 'gainers' ? 'PercPriceGainer' : 'PercPriceLoser',
-    };
-    if (req.query.expirydate) params.expirydate = String(req.query.expirydate);
-    if (req.query.period) params.period = String(req.query.period).toUpperCase();
-    const key = `market:${type}:${JSON.stringify(params)}`;
-    await cachedResponse(res, key, TTL.movers, () => angelService.getGainersLosers(params));
-  } catch (error) { next(error); }
+    const groups = configuredTokenGroups('NSE');
+    const tracked = groups.NSE || [];
+    const exchangeTokens = { NSE: tracked.map((item) => item.token) };
+    const key = `market:${type}:quotes:${JSON.stringify(exchangeTokens)}`;
+    await cachedResponse(res, key, TTL.movers, async () => {
+      try {
+        const response = await angelService.getQuotes({ mode: 'FULL', exchangeTokens });
+        const quotes = arrayData(response).map((item) => normalizeMover(item, tracked.find((candidate) => candidate.token === String(item.symbolToken || item.symboltoken))));
+        const valid = quotes.filter((item) => item.symbol && Number.isFinite(item.changePercent));
+        valid.sort((left, right) => type === 'gainers' ? right.changePercent - left.changePercent : left.changePercent - right.changePercent);
+        logMarket('movers-success', { type, tracked: tracked.length, returned: Math.min(valid.length, 5) });
+        return valid.slice(0, 5);
+      } catch (error) {
+        logMarket('movers-provider-error', { type, tracked: tracked.length, message: error.message });
+        return [];
+      }
+    });
+  } catch (error) { logMarket('movers-error', { type, message: error.message }); res.json({ data: [] }); }
 }
 
 async function gainers(req, res, next) { return movers('gainers', req, res, next); }
 async function losers(req, res, next) { return movers('losers', req, res, next); }
+
+async function commodities(req, res, next) {
+  try {
+    const groups = configuredTokenGroups('MCX');
+    const tracked = groups.MCX || [];
+    if (!tracked.length) return res.json({ data: [] });
+    const response = await angelService.getQuotes({ mode: 'FULL', exchangeTokens: { MCX: tracked.map((item) => item.token) } });
+    res.json({ data: arrayData(response) });
+  } catch (error) { logMarket('commodities-error', { message: error.message }); res.json({ data: [] }); }
+}
 
 async function depth(req, res, next) {
   try {
@@ -217,7 +284,8 @@ function normalizeQuote(item, instrument = {}) {
 async function findInstrument(symbol, exchanges = ['NSE', 'BSE', 'NFO', 'BFO']) {
   const normalized = String(symbol || '').trim().toUpperCase();
   if (!normalized || normalized.length > 50) throw badRequest('A valid symbol is required');
-  const results = (await Promise.all(exchanges.map((exchange) => angelService.searchInstruments(exchange, normalized)))).flat();
+  const responses = await Promise.allSettled(exchanges.map((exchange) => angelService.searchInstruments(exchange, normalized)));
+  const results = responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : []);
   const instrument = results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === normalized)
     || results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === `${normalized}-EQ`)
     || results[0];
@@ -235,13 +303,27 @@ async function stock(req, res, next) {
     if (!token) throw new Error('Instrument token was not returned by Angel One');
     const data = await cache.getOrSet(`market:stock:${exchange}:${token}`, TTL.quote, () => angelService.getQuotes({ mode: 'FULL', exchangeTokens: { [exchange]: [String(token)] } }));
     res.json({ data: normalizeQuote(data.value, instrument) });
-  } catch (error) { next(error); }
+  } catch (error) { logMarket('stock-error', { symbol: req.params.symbol, message: error.message }); res.json({ data: null }); }
 }
 
 async function fnoOverview(req, res, next) {
   try {
-    await cachedResponse(res, 'market:fno:overview', TTL.movers, () => angelService.getGainersLosers({ expirytype: 'NEAR', datatype: 'PercPriceGainer' }));
-  } catch (error) { next(error); }
+    const groups = configuredTokenGroups('NFO');
+    const tracked = groups.NFO || [];
+    if (!tracked.length) return res.json({ data: [] });
+    const result = await cache.getOrSet('market:fno:overview', TTL.movers, async () => {
+      try {
+        const response = await angelService.getQuotes({ mode: 'FULL', exchangeTokens: { NFO: tracked.map((item) => item.token) } });
+        return arrayData(response).map((item) => normalizeMover(item, tracked.find((candidate) => candidate.token === String(item.symbolToken || item.symboltoken)))).filter((item) => item.symbol);
+      } catch (error) {
+        logMarket('fno-overview-provider-error', { tracked: tracked.length, message: error.message });
+        return [];
+      }
+    });
+    res.set('X-Cache', result.cached ? 'HIT' : 'MISS');
+    logMarket('fno-overview-success', { tracked: tracked.length, returned: result.value.length });
+    res.json({ data: Array.isArray(result.value) ? result.value : [] });
+  } catch (error) { logMarket('fno-overview-error', { message: error.message }); res.json({ data: [] }); }
 }
 
 async function fnoSearch(req, res, next) {
@@ -266,4 +348,4 @@ async function fnoGreeks(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno, fnoGreeks };
+module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno, fnoGreeks };

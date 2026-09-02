@@ -9,6 +9,7 @@ router.get('/candles', controller.candles);
 router.get('/candles/:symbol', controller.candlesBySymbol);
 router.get('/gainers', controller.gainers);
 router.get('/losers', controller.losers);
+router.get('/commodities', controller.commodities);
 router.get('/stock/:symbol', controller.stock);
 router.get('/fno/overview', controller.fnoOverview);
 router.get('/fno/search', controller.fnoSearch);
