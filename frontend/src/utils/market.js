@@ -1,9 +1,9 @@
 export const LIVE_FEED_SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 export const COLORS = {
-  navy: "#081B3A", navy2: "#0F2A54", paper: "#EEF3FB", paperCard: "#FFFFFF",
-  accent: "#2F6FED", accentSoft: "#BBD3FA", ink: "#0E1E38", inkMuted: "#516179",
-  line: "#D9E4F5", up: "#1B8354", upSoft: "#E4F3EC", down: "#C23B32", downSoft: "#FBEAE8",
+  navy: "#0C0E0E", navy2: "#181A1A", paper: "#111313", paperCard: "#181A1A",
+  accent: "#6D83FF", accentSoft: "#303B72", ink: "#EEF3F8", inkMuted: "#899191",
+  line: "#2E3232", up: "#34C0B2", upSoft: "#123B38", down: "#EF656A", downSoft: "#422326",
 };
 export const fontDisplay = "'Sora', system-ui, sans-serif";
 export const fontBody = "'IBM Plex Sans', system-ui, sans-serif";

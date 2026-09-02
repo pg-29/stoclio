@@ -1,26 +1,11 @@
 import { useState } from "react";
-import { Bell, ChevronDown, User, BarChart3, Layers, Coins, Star } from "lucide-react";
+import { Bell, ChevronDown, Home, Search, User } from "lucide-react";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
-import MarketTicker from "./MarketTicker.jsx";
-import { LiveStatusDot, MarketStatusBadge } from "./MarketShared.jsx";
-import { COLORS, fontBody } from "../utils/market";
 
-const NAV_PAGES = [
-  { key: "stocks", label: "Stocks", icon: BarChart3 },
-  { key: "fno", label: "F&O", icon: Layers },
-  { key: "commodities", label: "Commodities", icon: Coins },
-  { key: "watchlist", label: "Watchlist", icon: Star },
-];
-
-function NotificationsButton() {
-  const [open, setOpen] = useState(false);
-  return <div style={{ position: "relative" }}><button onClick={() => setOpen((value) => !value)} aria-label="Notifications" style={{ background: "none", border: "none", cursor: "pointer", padding: 6, display: "flex" }}><Bell size={18} color="rgba(255,255,255,0.65)" /></button>{open && <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 240, background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, zIndex: 70 }}><strong style={{ fontFamily: "'Sora', system-ui", color: COLORS.ink }}>Notifications</strong><div style={{ fontFamily: fontBody, fontSize: 12, color: COLORS.inkMuted, marginTop: 6 }}>No alerts yet.</div></div>}</div>;
-}
-function ProfileMenu({ onLogout }) {
-  const [open, setOpen] = useState(false);
-  return <div style={{ position: "relative" }}><button onClick={() => setOpen((value) => !value)} title="Account" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer" }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: COLORS.accent, display: "flex", alignItems: "center", justifyContent: "center" }}><User size={16} color="#fff" /></div><ChevronDown size={13} color="rgba(255,255,255,0.6)" className="lv-hide-mobile" /></button>{open && <button onClick={onLogout} style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 180, background: "#fff", border: 0, borderRadius: 10, padding: 14, zIndex: 70, color: COLORS.down, fontFamily: fontBody, fontSize: 13, textAlign: "left" }}>Log out</button>}</div>;
-}
-export default function Header({ loggedIn, view, indices, commodities, onSelectInstrument, feedStatus, onLogin, onSignup, onLogout, onNavigate }) {
-  return <div>{!loggedIn && <div style={{ background: COLORS.accent, padding: "7px 16px", textAlign: "center", fontFamily: fontBody, fontWeight: 600, fontSize: 12.5, color: "#fff" }}>Stoclio is in early access - launching soon. Open your account to get in first.</div>}<div style={{ background: COLORS.navy }}><div className="lv-navbar"><button onClick={() => onNavigate("landing")} style={{ background: "none", border: 0, padding: 0 }}><Logo /></button><SearchBar onSelect={onSelectInstrument} dark /><div className="lv-nav-links">{!loggedIn ? <><button onClick={onLogin} style={{ fontFamily: fontBody, fontSize: 13.5, color: "#fff", background: "transparent", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}>Log in</button><button onClick={onSignup} style={{ fontFamily: fontBody, fontSize: 13.5, color: "#fff", background: COLORS.accent, border: "none", borderRadius: 8, padding: "9px 16px", cursor: "pointer" }}>Sign up</button></> : <><NotificationsButton /><ProfileMenu onLogout={onLogout} /></>}</div></div><div className="lv-nav-pages">{NAV_PAGES.map(({ key, label, icon: Icon }) => <button key={key} onClick={() => onNavigate(key)} className="lv-nav-page-item" style={{ color: view === key ? "#fff" : "rgba(255,255,255,0.65)", fontWeight: view === key ? 600 : 400, borderBottom: view === key ? `2px solid ${COLORS.accent}` : "2px solid transparent", background: "none", borderTop: 0, borderLeft: 0, borderRight: 0 }}><Icon size={14} />{label}</button>)}</div></div><MarketTicker indices={indices} commodities={commodities} /><div style={{ background: COLORS.navy, display: "flex", justifyContent: "center", gap: 14, padding: "5px 0" }}><LiveStatusDot status={feedStatus} /><span style={{ color: "rgba(255,255,255,0.2)" }}>·</span><MarketStatusBadge compact /></div></div>;
+const pages = [{ key: "stocks", label: "Stock Discovery" }, { key: "fno", label: "Index F&O" }, { key: "commodities", label: "Commodities" }, { key: "watchlist", label: "Watchlist" }];
+function Quote({ item }) { return <div className="top-quote"><strong>{item?.symbol || "Index"}</strong><span className={item?.price >= item?.open ? "positive" : "negative"}>{Number.isFinite(item?.price) ? `₹${item.price.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "Market Closed"}</span><small className={item?.price >= item?.open ? "positive" : "negative"}>{Number.isFinite(item?.price) && Number.isFinite(item?.open) ? `${((item.price - item.open) / item.open * 100).toFixed(2)}%` : "Showing Last Session Data"}</small></div>; }
+export default function Header({ loggedIn, view, indices = [], commodities = [], onSelectInstrument, onLogin, onSignup, onLogout, onNavigate }) {
+	const [open, setOpen] = useState(false);
+	return <header><div className="terminal-topbar"><button className="brand-button" onClick={() => onNavigate("landing")}><Logo /></button><div className="top-quotes"><Quote item={indices[0]} /><Quote item={indices[1]} /></div><SearchBar onSelect={onSelectInstrument} dark /><nav className="desktop-nav"><button onClick={() => onNavigate("landing")} title="Home"><Home size={14} /></button><button className={view !== "landing" ? "active" : ""} onClick={() => onNavigate("stocks")}>Markets</button><button onClick={() => onNavigate("dashboard")}>Portfolio</button><button onClick={() => onNavigate("watchlist")}>Watchlist</button></nav><div className="account-actions">{loggedIn ? <><button title="Notifications"><Bell size={15} /></button><button title="Account" onClick={() => setOpen(!open)}><User size={15} /><ChevronDown size={12} /></button>{open && <button className="logout-popover" onClick={onLogout}>Log out</button>}</> : <><button className="terminal-btn" onClick={onLogin}>Log in</button><button className="terminal-btn terminal-btn-primary" onClick={onSignup}>Sign up</button></>}</div></div><div className="terminal-nav">{pages.map((page) => <button key={page.key} className={view === page.key ? "active" : ""} onClick={() => onNavigate(page.key)}>{page.label}</button>)}</div></header>;
 }
