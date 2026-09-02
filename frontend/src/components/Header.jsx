@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Bell, ChevronDown, Home, Search, User } from "lucide-react";
+import { Bell, ChevronDown, Home, User } from "lucide-react";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
 
-const pages = [{ key: "stocks", label: "Stock Discovery" }, { key: "fno", label: "Index F&O" }, { key: "commodities", label: "Commodities" }, { key: "watchlist", label: "Watchlist" }];
+const pages = [{ key: "stocks", label: "Stock Discovery" }, { key: "fno", label: "Index F&O" }, { key: "stocks-fno", label: "Stocks F&O" }, { key: "commodities", label: "Commodities" }, { key: "all-indices", label: "All Indices" }, { key: "news", label: "News" }];
 function Quote({ item }) { return <div className="top-quote"><strong>{item?.symbol || "Index"}</strong><span className={item?.price >= item?.open ? "positive" : "negative"}>{Number.isFinite(item?.price) ? `₹${item.price.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "Market Closed"}</span><small className={item?.price >= item?.open ? "positive" : "negative"}>{Number.isFinite(item?.price) && Number.isFinite(item?.open) ? `${((item.price - item.open) / item.open * 100).toFixed(2)}%` : "Showing Last Session Data"}</small></div>; }
 export default function Header({ loggedIn, view, indices = [], commodities = [], onSelectInstrument, onLogin, onSignup, onLogout, onNavigate }) {
 	const [open, setOpen] = useState(false);
