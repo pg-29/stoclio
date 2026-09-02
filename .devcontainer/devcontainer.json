@@ -1,0 +1,15 @@
+{
+  "name": "Stoclio",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "postCreateCommand": "npm install --prefix frontend && npm install --prefix backend",
+  "forwardPorts": [5173, 5000],
+  "portsAttributes": {
+    "5173": { "label": "Stoclio frontend", "onAutoForward": "openBrowser" },
+    "5000": { "label": "Stoclio API" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "mongodb.mongodb-vscode"]
+    }
+  }
+}

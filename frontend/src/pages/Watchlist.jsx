@@ -1,0 +1,5 @@
+import { useState } from "react";
+import TradingViewChart from "../components/TradingViewChart.jsx";
+import InstrumentTable from "../components/InstrumentTable.jsx";
+import { COLORS, fontBody, fontDisplay } from "../utils/market";
+export default function Watchlist({ stocks, initialSymbol }) { const [selected, setSelected] = useState(initialSymbol || stocks[0]?.symbol); const chosen = stocks.find((item) => item.symbol === selected) || stocks[0]; return <div style={{ background: COLORS.paper }}><div className="lv-page-wrap"><h1 style={{ fontFamily: fontDisplay, fontWeight: 600, fontSize: 26, color: COLORS.ink, margin: "0 0 6px" }}>Watchlist</h1><p style={{ fontFamily: fontBody, fontSize: 13.5, color: COLORS.inkMuted, margin: "0 0 20px" }}>A sample watchlist — log in to save your own, with multiple lists.</p>{chosen && <div style={{ background: COLORS.paperCard, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 14, marginBottom: 18 }}><TradingViewChart symbol={chosen.symbol} height={320} /></div>}<InstrumentTable title="Default watchlist" items={stocks} onSelect={setSelected} /></div></div>; }
