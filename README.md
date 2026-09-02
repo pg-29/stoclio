@@ -87,7 +87,7 @@ Health check: /health
 
 1. In Vercel, choose **Add New** -> **Project**.
 2. Import the same GitHub repository.
-3. Keep the repository root as the project root; [vercel.json](vercel.json) runs the frontend build from `frontend/`.
+3. Set **Root Directory** to `frontend`; [vercel.json](vercel.json) uses commands relative to that directory.
 4. Add `VITE_API_URL` and `VITE_SOCKET_URL` using the deployed Render URL.
 5. Deploy and verify the Vercel URL loads the dashboard shell.
 
