@@ -8,12 +8,13 @@ export function MarketStatusBadge({ compact, light }) {
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: fontBody, fontSize: compact ? 11 : 12.5, color: isOpen ? COLORS.up : closedColor }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOpen ? COLORS.up : COLORS.down, display: "inline-block", flexShrink: 0 }} />
-      {isOpen ? "Market open" : `Market closed — opens ${nextOpenLabel}`}
+      {isOpen ? "Market Open" : "Market Closed"}
     </div>
   );
 }
 
 export function ChangeTag({ change, size = 13 }) {
+  if (!Number.isFinite(Number(change))) return <span style={{ fontFamily: fontBody, fontSize: size, color: COLORS.inkMuted }}>Market Closed</span>;
   const positive = change >= 0;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: fontMono, fontSize: size, fontWeight: 500, color: positive ? COLORS.up : COLORS.down, whiteSpace: "nowrap" }}>

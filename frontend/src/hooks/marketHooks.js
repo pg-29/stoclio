@@ -16,7 +16,7 @@ export function useViewport() {
 }
 export function useMarketStatus() {
   const [now, setNow] = useState(new Date());
-  useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
+  useEffect(() => { const id = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(id); }, []);
   const ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
   const day = ist.getDay(); const minutes = ist.getHours() * 60 + ist.getMinutes();
   const isOpen = day >= 1 && day <= 5 && minutes >= 555 && minutes < 930;
@@ -26,7 +26,7 @@ export function useMarketStatus() {
 }
 export function useMarket(catalog, exchange) {
   const [items, setItems] = useState([]);
-  useEffect(() => { let cancelled = false; api.get(`/market/quote?symbols=${catalog.map((item) => encodeURIComponent(item.symbol)).join(",")}`).then(({ data }) => { if (cancelled) return; const quotes = Array.isArray(data.data) ? data.data : data.data?.fetched || []; const bySymbol = Object.fromEntries(quotes.map((quote) => [String(quote.tradingsymbol || quote.tradingSymbol || quote.symbol || "").replace(/-EQ$/, "").toUpperCase(), quote])); setItems(catalog.flatMap((item) => { const quote = bySymbol[item.symbol]; const price = Number(quote?.ltp ?? quote?.price ?? quote?.last_traded_price); if (!Number.isFinite(price)) return []; const open = Number(quote?.open ?? quote?.open_price_day ?? price); return [{ ...item, exchange, price, open, prev: price, history: [{ t: 0, p: price }] }]; })); }).catch(() => { if (!cancelled) setItems([]); }); return () => { cancelled = true; }; }, [catalog, exchange]);
+  useEffect(() => { let cancelled = false; let timer; const load = () => api.get(`/market/quote?symbols=${catalog.map((item) => encodeURIComponent(item.symbol)).join(",")}`).then(({ data }) => { if (cancelled) return; const quotes = Array.isArray(data.data) ? data.data : data.data?.fetched || []; const bySymbol = Object.fromEntries(quotes.map((quote) => [String(quote.tradingsymbol || quote.tradingSymbol || quote.symbol || "").replace(/-EQ$/, "").toUpperCase(), quote])); setItems(catalog.flatMap((item) => { const quote = bySymbol[item.symbol]; const price = Number(quote?.ltp ?? quote?.price ?? quote?.last_traded_price); if (!Number.isFinite(price)) return []; const open = Number(quote?.open ?? quote?.open_price_day ?? price); return [{ ...item, exchange, price, open, prev: price, history: [{ t: 0, p: price }] }]; })); }).catch(() => { if (!cancelled) setItems([]); }).finally(() => { if (!cancelled) { const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes(); const open = now.getDay() > 0 && now.getDay() < 6 && minutes >= 555 && minutes < 930; timer = window.setTimeout(load, open ? 15000 : 300000); } }); load(); return () => { cancelled = true; window.clearTimeout(timer); }; }, [catalog, exchange]);
   return items;
 }
 export function useLiveFeed(url) {

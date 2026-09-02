@@ -138,3 +138,14 @@ code {
   .lv-nav-page-item { padding: 10px 9px; font-size: 12px; }
   .lv-page-wrap { padding: 24px 14px 44px; }
 }
+
+:root { --card-radius: 12px; --card-shadow: 0 8px 24px rgba(8, 27, 58, 0.07); --section-gap: 32px; }
+#root { width: min(100%, 1440px); }
+.lv-page-wrap { max-width: 1440px !important; padding-block: 36px 64px !important; }
+.lv-page-wrap > section, .lv-page-wrap > div[style*="border-radius"] { border-radius: var(--card-radius) !important; box-shadow: var(--card-shadow); }
+.lv-page-wrap > section { margin-bottom: 24px; }
+.lv-movers-grid { gap: 24px !important; align-items: stretch; }
+.lv-movers-grid > * { min-height: 148px; }
+.lv-summary-grid { gap: 16px !important; }
+table { display: block; max-width: 100%; overflow-x: auto; }
+@media (max-width: 760px) { .lv-page-wrap { padding: 24px 14px 44px !important; } .lv-page-wrap > section { margin-bottom: 18px; } .lv-movers-grid { gap: 16px !important; } .lv-movers-grid > * { min-height: 126px; } }

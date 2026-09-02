@@ -20,7 +20,7 @@ export const STOCK_INSTRUMENTS = [
 export const INDEX_INSTRUMENTS = [{ symbol: "NIFTY 50" }, { symbol: "SENSEX" }, { symbol: "BANK NIFTY" }, { symbol: "FIN NIFTY" }, { symbol: "MIDCAP NIFTY" }];
 export const COMMODITY_INSTRUMENTS = [{ symbol: "GOLD", unit: "/10g" }, { symbol: "SILVER", unit: "/kg" }, { symbol: "CRUDE OIL", unit: "/bbl" }, { symbol: "NATURAL GAS", unit: "/mmBtu" }];
 export const SECTORS = ["IT", "Banking", "Energy", "FMCG", "Infra", "Telecom", "Pharma", "Auto", "Metals", "Realty", "Media", "PSU"];
-export const fmt = (n, d = 2) => n.toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
+export const fmt = (n, d = 2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d }) : "Market Closed";
 export const inr = (n) => "₹" + fmt(n);
 export const pctChange = (price, open) => ((price - open) / open) * 100;
 export const mergeLive = (items, liveTicks) => items.map((it) => { const live = liveTicks[it.symbol]; if (!live) return it; return { ...it, prev: it.price, price: live.price, history: [...it.history, { t: it.history.length, p: live.price }].slice(-40) }; });
