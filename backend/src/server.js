@@ -12,6 +12,7 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const marketRoutes = require('./routes/market');
 const fnoRoutes = require('./routes/fno');
+const instrumentRoutes = require('./routes/instruments');
 const watchlistRoutes = require('./routes/watchlist');
 const angelStream = require('./services/angel.stream.service');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -30,6 +31,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { message: 'Too many authentication attempts, please try again later' } }), authRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/fno', fnoRoutes);
+app.use('/api/instruments', instrumentRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use(errorHandler);
 io.on('connection', (socket) => {

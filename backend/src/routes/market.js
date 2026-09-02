@@ -4,6 +4,7 @@ const controller = require('../controllers/market.controller');
 const router = express.Router();
 
 router.get('/search', controller.search);
+router.get('/status', controller.status);
 router.get('/quote', controller.quote);
 router.get('/candles', controller.candles);
 router.get('/candles/:symbol', controller.candlesBySymbol);

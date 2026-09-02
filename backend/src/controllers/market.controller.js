@@ -134,6 +134,10 @@ async function search(req, res, next) {
   } catch (error) { logMarket('search-error', { query: req.query.q || req.query.query, message: error.message }); res.json({ data: [] }); }
 }
 
+async function status(req, res, next) {
+  res.json(await angelService.getConnectionStatus());
+}
+
 async function quote(req, res, next) {
   try {
     let exchangeTokens;
@@ -410,4 +414,4 @@ async function fnoGreeks(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fnoFutures, fnoDashboard, fnoContracts, fnoContract, fnoDepth, fnoHistory, fnoExpiries, fno, fnoGreeks };
+module.exports = { search, status, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fnoFutures, fnoDashboard, fnoContracts, fnoContract, fnoDepth, fnoHistory, fnoExpiries, fno, fnoGreeks };

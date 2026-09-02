@@ -23,6 +23,7 @@ class AngelOneService {
   }
 
   assertResponse(response, operation) {
+    console.info(JSON.stringify({ scope: 'angel', operation, status: response?.status === true, responseKeys: response && typeof response === 'object' ? Object.keys(response) : [] }));
     if (!response || response.status !== true) {
       const detail = response?.message || response?.errorcode || 'Unknown provider error';
       throw new AngelServiceError(`Angel One ${operation} failed: ${detail}`);
@@ -79,6 +80,16 @@ class AngelOneService {
   async ensureSession() {
     if (!this.session?.accessToken) await this.generateSession();
     return this.session;
+  }
+
+  async getConnectionStatus() {
+    try {
+      const session = await this.ensureSession();
+      return { authenticated: Boolean(session?.accessToken), feedTokenAvailable: Boolean(session?.feedToken), smartApiConnected: Boolean(this.client && session?.accessToken) };
+    } catch (error) {
+      console.warn(JSON.stringify({ scope: 'angel', operation: 'status', message: error.message }));
+      return { authenticated: false, feedTokenAvailable: false, smartApiConnected: false };
+    }
   }
 
   async getQuotes({ mode = 'FULL', exchangeTokens } = {}) {
