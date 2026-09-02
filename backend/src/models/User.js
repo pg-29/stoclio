@@ -8,10 +8,9 @@ const userSchema = new mongoose.Schema({
   watchlist: [{ type: String, uppercase: true, trim: true }],
 }, { timestamps: true });
 
-userSchema.pre('save', async function save(next) {
-  if (!this.isModified('passwordHash')) return next();
+userSchema.pre('save', async function save() {
+  if (!this.isModified('passwordHash')) return;
   this.passwordHash = await bcrypt.hash(this.passwordHash, 12);
-  next();
 });
 
 userSchema.methods.comparePassword = function comparePassword(candidate) {
