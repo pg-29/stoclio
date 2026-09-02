@@ -12,4 +12,10 @@ export const marketApi = {
   fno: (symbol) => api.get(`/market/fno/${encodeURIComponent(symbol)}`),
   candles: (symbol, params = {}) => api.get(`/market/candles/${encodeURIComponent(symbol)}`, { params }),
   fnoGreeks: (name, expirydate) => api.get(`/market/fno/greeks?name=${encodeURIComponent(name)}&expirydate=${encodeURIComponent(expirydate)}`),
+  fnoSearchDedicated: (query, config) => api.get(`/fno/search?q=${encodeURIComponent(query)}`, config),
+  fnoFutures: (query) => api.get(`/fno/futures?q=${encodeURIComponent(query)}`),
+  fnoDetails: (symbol) => api.get(`/fno/${encodeURIComponent(symbol)}`),
+  fnoDepth: (symbol) => api.get(`/fno/depth/${encodeURIComponent(symbol)}`),
+  fnoHistory: (symbol, params = {}) => api.get(`/fno/history/${encodeURIComponent(symbol)}`, { params }),
+  fnoExpiries: (query) => api.get(`/fno/expiries?q=${encodeURIComponent(query)}`),
 };

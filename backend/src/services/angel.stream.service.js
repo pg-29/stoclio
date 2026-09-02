@@ -95,7 +95,11 @@ class AngelStreamService {
   }
 
   subscribe(symbols = []) {
-    symbols.filter((symbol) => this.tokens[symbol]).forEach((symbol) => this.subscribedSymbols.add(symbol));
+    symbols.forEach((entry) => {
+      const symbol = typeof entry === 'string' ? entry : String(entry?.symbol || '').toUpperCase();
+      if (entry && typeof entry === 'object' && entry.token && entry.exchange) this.tokens[symbol] = { token: String(entry.token), exchange: String(entry.exchange).toLowerCase() };
+      if (this.tokens[symbol]) this.subscribedSymbols.add(symbol);
+    });
     if (!this.socket || !this.subscribedSymbols.size) return;
     const grouped = [...this.subscribedSymbols].reduce((result, symbol) => {
       const item = this.tokens[symbol];

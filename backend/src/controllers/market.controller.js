@@ -103,6 +103,11 @@ function normalizeMover(item, tracked = {}) {
   return { symbol, exchange: item.exchange || tracked.exchange || '', ltp, changePercent, volume: Number(item.tradeVolume ?? item.tradedVolume ?? item.volume ?? 0) };
 }
 
+function expiryFromSymbol(symbol) {
+  const match = String(symbol || '').match(/(\d{2}[A-Z]{3}\d{2})/i);
+  return match ? match[1].toUpperCase() : undefined;
+}
+
 async function search(req, res, next) {
   try {
     const query = String(req.query.q || req.query.query || req.query.searchscrip || '').trim();
@@ -330,12 +335,46 @@ async function fnoSearch(req, res, next) {
   return search({ ...req, query: { ...req.query, exchange: 'NFO' } }, res, next);
 }
 
+async function fnoFutures(req, res, next) {
+  try {
+    const query = String(req.query.q || req.query.query || 'NIFTY').trim();
+    const responses = await Promise.allSettled(['NFO'].map((exchange) => angelService.searchInstruments(exchange, query)));
+    const results = responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : [])
+      .filter((item) => /FUT$/i.test(item.tradingsymbol || item.tradingSymbol || item.symbol || ''))
+      .map((item) => { const symbol = item.tradingsymbol || item.tradingSymbol || item.symbol || ''; return { symbol, exchange: 'NFO', symboltoken: item.symboltoken || item.symbolToken || item.token, expiry: item.expiry || item.expirydate || expiryFromSymbol(symbol), lotsize: item.lotsize || item.lotSize, ticksize: item.ticksize || item.tickSize, instrumenttype: item.instrumenttype || item.instrumentType || 'FUTIDX' }; });
+    logMarket('fno-futures-success', { query, returned: results.length });
+    res.json({ data: results });
+  } catch (error) { logMarket('fno-futures-error', { message: error.message }); res.json({ data: [] }); }
+}
+
+async function fnoDepth(req, res, next) {
+  try {
+    const instrument = await findInstrument(req.params.symbol, ['NFO']);
+    const response = await angelService.getMarketDepth({ NFO: [String(instrument.symboltoken)] });
+    res.json({ data: { instrument, depth: firstQuote(response).depth || firstQuote(response) } });
+  } catch (error) { logMarket('fno-depth-error', { symbol: req.params.symbol, message: error.message }); res.json({ data: { instrument: null, depth: {} } }); }
+}
+
+async function fnoHistory(req, res, next) {
+  return candlesBySymbol(req, res, next);
+}
+
+async function fnoExpiries(req, res, next) {
+  try {
+    const query = String(req.query.q || 'NIFTY').trim();
+    const responses = await Promise.allSettled([angelService.searchInstruments('NFO', query)]);
+    const contracts = responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : []).map((item) => { const symbol = item.tradingsymbol || item.tradingSymbol || item.symbol || ''; return { symbol, expiry: item.expiry || item.expirydate || expiryFromSymbol(symbol), token: item.symboltoken || item.symbolToken || item.token }; }).filter((item) => item.symbol && item.expiry);
+    const grouped = contracts.reduce((result, contract) => { const key = String(contract.expiry); (result[key] ||= []).push(contract); return result; }, {});
+    res.json({ data: Object.entries(grouped).sort(([left], [right]) => left.localeCompare(right)).map(([expiry, items]) => ({ expiry, contracts: items })) });
+  } catch (error) { logMarket('fno-expiries-error', { message: error.message }); res.json({ data: [] }); }
+}
+
 async function fno(req, res, next) {
   try {
     const instrument = await findInstrument(req.params.symbol, ['NFO', 'BFO']);
     const token = instrument.symboltoken || instrument.symbolToken;
     const data = await cache.getOrSet(`market:fno:${instrument.exchange}:${token}`, TTL.quote, () => angelService.getQuotes({ mode: 'FULL', exchangeTokens: { [instrument.exchange]: [String(token)] } }));
-    res.json({ data: { instrument, quote: normalizeQuote(data.value, instrument), expiry: instrument.expiry || instrument.expirydate, strike: instrument.strikeprice || instrument.strike, openInterest: firstQuote(data.value).opentInterest ?? firstQuote(data.value).openInterest, volume: firstQuote(data.value).tradeVolume ?? firstQuote(data.value).volume } });
+    res.json({ data: { instrument: { ...instrument, expiry: instrument.expiry || instrument.expirydate || expiryFromSymbol(instrument.tradingsymbol || instrument.tradingSymbol || instrument.symbol) }, quote: normalizeQuote(data.value, instrument), expiry: instrument.expiry || instrument.expirydate || expiryFromSymbol(instrument.tradingsymbol || instrument.tradingSymbol || instrument.symbol), strike: instrument.strikeprice || instrument.strike, lotSize: instrument.lotsize || instrument.lotSize, tickSize: instrument.ticksize || instrument.tickSize, segment: instrument.exch_seg || instrument.exchange || 'NFO', instrumentType: instrument.instrumenttype || instrument.instrumentType || 'FUT', openInterest: firstQuote(data.value).opentInterest ?? firstQuote(data.value).openInterest ?? firstQuote(data.value).opnInterest, volume: firstQuote(data.value).tradeVolume ?? firstQuote(data.value).volume } });
   } catch (error) { next(error); }
 }
 
@@ -348,4 +387,4 @@ async function fnoGreeks(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno, fnoGreeks };
+module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fnoFutures, fnoDepth, fnoHistory, fnoExpiries, fno, fnoGreeks };
