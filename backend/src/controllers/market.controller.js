@@ -135,6 +135,24 @@ async function candles(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function candlesBySymbol(req, res, next) {
+  try {
+    const instrument = await findInstrument(req.params.symbol, ['NSE', 'BSE', 'NFO', 'BFO', 'MCX']);
+    const token = instrument.symboltoken || instrument.symbolToken;
+    const todate = new Date();
+    const fromdate = new Date(todate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const params = {
+      exchange: instrument.exchange,
+      symboltoken: String(token),
+      interval: String(req.query.interval || 'ONE_DAY').toUpperCase(),
+      fromdate: String(req.query.fromdate || fromdate.toISOString().slice(0, 10) + ' 09:15'),
+      todate: String(req.query.todate || todate.toISOString().slice(0, 10) + ' 15:30'),
+    };
+    const result = await cache.getOrSet(`market:candles:symbol:${instrument.exchange}:${token}:${params.interval}:${params.fromdate}:${params.todate}`, TTL.candles, () => angelService.getHistoricalCandles(params));
+    res.json({ data: { instrument, candles: result.value } });
+  } catch (error) { next(error); }
+}
+
 async function movers(type, req, res, next) {
   try {
     const params = {
@@ -183,8 +201,8 @@ function normalizeQuote(item, instrument = {}) {
   return {
     name: instrument.name || instrument.tradingsymbol || quote.tradingsymbol || quote.tradingSymbol || '',
     symbol: instrument.tradingsymbol || instrument.symbol || quote.tradingsymbol || quote.tradingSymbol || '',
-    exchange: instrument.exchange || quote.exchange || '',
-    symboltoken: instrument.symboltoken || instrument.symbolToken || quote.symboltoken || quote.symbolToken || '',
+    exchange: instrument.exchange || instrument.exch_seg || quote.exchange || '',
+    symboltoken: instrument.symboltoken || instrument.symbolToken || instrument.token || quote.symboltoken || quote.symbolToken || '',
     ltp,
     open: Number(quote.open ?? quote.open_price_day),
     high: Number(quote.high ?? quote.high_price_day),
@@ -202,7 +220,9 @@ async function findInstrument(symbol, exchanges = ['NSE', 'BSE', 'NFO', 'BFO']) 
   const results = (await Promise.all(exchanges.map((exchange) => angelService.searchInstruments(exchange, normalized)))).flat();
   const instrument = results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === normalized) || results[0];
   if (!instrument) { const error = new Error(`Instrument not found: ${normalized}`); error.statusCode = 404; throw error; }
-  return { ...instrument, exchange: String(instrument.exchange || '').toUpperCase() };
+  const rawExchange = instrument.exchange || instrument.exch_seg || '';
+  const exchange = String(rawExchange).toUpperCase().replace('_CM', '').replace('_FO', '');
+  return { ...instrument, exchange, symboltoken: instrument.symboltoken || instrument.symbolToken || instrument.token };
 }
 
 async function stock(req, res, next) {
@@ -235,4 +255,13 @@ async function fno(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, gainers, losers, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno };
+async function fnoGreeks(req, res, next) {
+  try {
+    const name = String(req.query.name || '').trim().toUpperCase();
+    const expirydate = String(req.query.expirydate || '').trim().toUpperCase();
+    if (!name || !expirydate) throw badRequest('name and expirydate are required');
+    await cachedResponse(res, `market:fno:greeks:${name}:${expirydate}`, TTL.quote, () => angelService.getOptionGreek({ name, expirydate }));
+  } catch (error) { next(error); }
+}
+
+module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fno, fnoGreeks };

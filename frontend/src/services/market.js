@@ -10,4 +10,6 @@ export const marketApi = {
   fnoOverview: () => api.get("/market/fno/overview"),
   fnoSearch: (query, config) => api.get(`/market/fno/search?q=${encodeURIComponent(query)}`, config),
   fno: (symbol) => api.get(`/market/fno/${encodeURIComponent(symbol)}`),
+  candles: (symbol, params = {}) => api.get(`/market/candles/${encodeURIComponent(symbol)}`, { params }),
+  fnoGreeks: (name, expirydate) => api.get(`/market/fno/greeks?name=${encodeURIComponent(name)}&expirydate=${encodeURIComponent(expirydate)}`),
 };

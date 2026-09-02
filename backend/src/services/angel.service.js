@@ -122,6 +122,18 @@ class AngelOneService {
     }
   }
 
+  async getOptionGreek(params) {
+    if (!params?.name || !params?.expirydate) throw new AngelServiceError('Option Greek name and expirydate are required');
+    await this.ensureSession();
+    try {
+      const response = await this.getClient().optionGreek(params);
+      return this.assertResponse(response, 'option Greek fetch').data;
+    } catch (error) {
+      if (error instanceof AngelServiceError) throw error;
+      throw new AngelServiceError('Angel One option Greek fetch failed', error);
+    }
+  }
+
   async searchInstruments(exchange, query) {
     if (!exchange || !query) throw new AngelServiceError('Exchange and search query are required');
     await this.ensureSession();

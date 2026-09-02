@@ -56,6 +56,29 @@ paths:
         - { name: mode, in: query, schema: { type: string, enum: [LTP, QUOTE, FULL] } }
       responses:
         '200': { description: Quotes }
+  /api/market/stock/{symbol}:
+    get:
+      summary: Fetch a live stock quote and market depth
+      parameters:
+        - { name: symbol, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Live stock details }
+  /api/market/candles/{symbol}:
+    get:
+      summary: Fetch historical candles for an instrument
+      parameters:
+        - { name: symbol, in: path, required: true, schema: { type: string } }
+        - { name: interval, in: query, schema: { type: string, example: ONE_DAY } }
+      responses:
+        '200': { description: Historical candles }
+  /api/market/fno/greeks:
+    get:
+      summary: Fetch option Greeks
+      parameters:
+        - { name: name, in: query, required: true, schema: { type: string } }
+        - { name: expirydate, in: query, required: true, schema: { type: string, example: 25JAN2024 } }
+      responses:
+        '200': { description: Option Greeks }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
