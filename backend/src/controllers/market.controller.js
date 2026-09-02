@@ -339,13 +339,36 @@ async function fnoFutures(req, res, next) {
   try {
     const query = String(req.query.q || req.query.query || 'NIFTY').trim();
     const responses = await Promise.allSettled(['NFO'].map((exchange) => angelService.searchInstruments(exchange, query)));
-    const results = responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : [])
+    const instruments = responses.flatMap((response) => response.status === 'fulfilled' ? arrayData(response.value) : [])
       .filter((item) => /FUT$/i.test(item.tradingsymbol || item.tradingSymbol || item.symbol || ''))
       .map((item) => { const symbol = item.tradingsymbol || item.tradingSymbol || item.symbol || ''; return { symbol, exchange: 'NFO', symboltoken: item.symboltoken || item.symbolToken || item.token, expiry: item.expiry || item.expirydate || expiryFromSymbol(symbol), lotsize: item.lotsize || item.lotSize, ticksize: item.ticksize || item.tickSize, instrumenttype: item.instrumenttype || item.instrumentType || 'FUTIDX' }; });
+    let quotes = [];
+    try {
+      const quoteResponse = instruments.length ? await angelService.getQuotes({ mode: 'FULL', exchangeTokens: { NFO: instruments.map((item) => String(item.symboltoken)) } }) : [];
+      quotes = arrayData(quoteResponse);
+    } catch (error) { logMarket('fno-futures-quote-error', { query, message: error.message }); }
+    const results = instruments.map((instrument) => ({ ...instrument, quote: normalizeMover(quotes.find((quote) => String(quote.symbolToken || quote.symboltoken) === String(instrument.symboltoken)) || {}, instrument) }));
     logMarket('fno-futures-success', { query, returned: results.length });
     res.json({ data: results });
   } catch (error) { logMarket('fno-futures-error', { message: error.message }); res.json({ data: [] }); }
 }
+
+async function fnoDashboard(req, res, next) {
+  try {
+    const underlyings = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY'];
+    const contracts = [];
+    for (const query of underlyings) {
+      const items = await new Promise((resolve) => fnoFutures({ query: { q: query } }, { json: (body) => resolve(body.data || []) }).catch(() => resolve([])));
+      if (items[0]) contracts.push(items[0]);
+    }
+    logMarket('fno-dashboard-success', { returned: contracts.length });
+    res.json({ data: contracts });
+  } catch (error) { logMarket('fno-dashboard-error', { message: error.message }); res.json({ data: [] }); }
+}
+
+async function fnoContracts(req, res, next) { return fnoFutures(req, res, next); }
+
+async function fnoContract(req, res, next) { return fno(req, res, next); }
 
 async function fnoDepth(req, res, next) {
   try {
@@ -387,4 +410,4 @@ async function fnoGreeks(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fnoFutures, fnoDepth, fnoHistory, fnoExpiries, fno, fnoGreeks };
+module.exports = { search, quote, candles, candlesBySymbol, gainers, losers, commodities, depth, depthBySymbol, stock, fnoOverview, fnoSearch, fnoFutures, fnoDashboard, fnoContracts, fnoContract, fnoDepth, fnoHistory, fnoExpiries, fno, fnoGreeks };

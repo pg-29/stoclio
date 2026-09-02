@@ -18,4 +18,7 @@ export const marketApi = {
   fnoDepth: (symbol) => api.get(`/fno/depth/${encodeURIComponent(symbol)}`),
   fnoHistory: (symbol, params = {}) => api.get(`/fno/history/${encodeURIComponent(symbol)}`, { params }),
   fnoExpiries: (query) => api.get(`/fno/expiries?q=${encodeURIComponent(query)}`),
+  fnoDashboard: () => api.get("/fno/dashboard"),
+  fnoContracts: (query) => api.get(`/fno/contracts?q=${encodeURIComponent(query)}`),
+  fnoContract: (symbol) => api.get(`/fno/contract/${encodeURIComponent(symbol)}`),
 };
