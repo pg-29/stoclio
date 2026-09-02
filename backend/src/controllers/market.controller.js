@@ -218,7 +218,9 @@ async function findInstrument(symbol, exchanges = ['NSE', 'BSE', 'NFO', 'BFO']) 
   const normalized = String(symbol || '').trim().toUpperCase();
   if (!normalized || normalized.length > 50) throw badRequest('A valid symbol is required');
   const results = (await Promise.all(exchanges.map((exchange) => angelService.searchInstruments(exchange, normalized)))).flat();
-  const instrument = results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === normalized) || results[0];
+  const instrument = results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === normalized)
+    || results.find((item) => String(item.tradingsymbol || item.symbol || '').toUpperCase() === `${normalized}-EQ`)
+    || results[0];
   if (!instrument) { const error = new Error(`Instrument not found: ${normalized}`); error.statusCode = 404; throw error; }
   const rawExchange = instrument.exchange || instrument.exch_seg || '';
   const exchange = String(rawExchange).toUpperCase().replace('_CM', '').replace('_FO', '');
